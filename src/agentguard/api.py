@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -68,8 +69,17 @@ def customers() -> list[dict[str, Any]]:
     return rt.store.customers()
 
 
+_orders_cache: dict[str, Any] = {"key": None, "at": 0.0, "data": []}
+ORDERS_TTL_S = 30.0
+
+
 @app.get("/api/orders")
 def orders() -> list[dict[str, Any]]:
+    # The console polls this; only go back to PayPal when a refund decision changed or the TTL passed.
+    decisions = tuple((d["id"], d["status"]) for d in rt.store.list_decisions(limit=50))
+    key = decisions, tuple(o["order_id"] for o in rt.store.all_orders())
+    if _orders_cache["key"] == key and time.monotonic() - _orders_cache["at"] < ORDERS_TTL_S:
+        return _orders_cache["data"]
     out = []
     for row in rt.store.all_orders():
         try:
@@ -77,6 +87,7 @@ def orders() -> list[dict[str, Any]]:
             out.append({**row, **facts.summary(), "refundable": f"{facts.refundable:.2f}"})
         except PayPalError as exc:
             out.append({**row, "error": str(exc)})
+    _orders_cache.update(key=key, at=time.monotonic(), data=out)
     return out
 
 

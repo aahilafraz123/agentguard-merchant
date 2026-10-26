@@ -109,7 +109,8 @@ class AgentGuard:
                 amount=decision.request.amount,
                 currency="USD",
                 note=f"Refund for order {decision.request.order_id}",
-                request_id=f"agentguard-decision-{decision_id}",
+                # Unique per payment and decision: decision ids restart when the demo database is reset.
+                request_id=f"agentguard-{decision.capture_id}-{decision_id}",
             )
         except PayPalError as exc:
             log.error("PayPal refund failed for decision %s: %s", decision_id, exc)

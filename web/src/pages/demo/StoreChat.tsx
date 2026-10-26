@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { ApiError, api, type ChatEvent, type Customer, type GuardMode, type Health, type Order } from "../../api";
 import { OUTCOME_LABEL, money } from "../../format";
 import { CustomerPicker } from "./CustomerPicker";
+import { productImage, productName } from "./products";
 import { suggestionsFor } from "./scripts";
 
 type GuardEvent = Extract<ChatEvent, { type: "guard_decision" }>;
@@ -158,12 +159,13 @@ export function StoreChat({ health, customers, orders, onDecision, onActivity }:
 
   return (
     <section className={`store ${guardOn ? "" : "is-unguarded"}`} aria-label="Kettle & Crow support chat">
-      <header className="store-head">
-        <div className="store-brand">
-          <span className="store-name">Kettle &amp; Crow</span>
-          <span className="store-kicker">Coffee Roasters support</span>
-        </div>
+      <header className="store-hero">
+        <img className="store-hero-img" src="/shop/roastery.webp" alt="" aria-hidden="true" />
         <GuardSwitch on={guardOn} onChange={setGuardOn} />
+        <div className="store-brand">
+          <span className="store-kicker">Small-batch roasters · Customer care</span>
+          <span className="store-name">Kettle &amp; Crow</span>
+        </div>
       </header>
 
       <div className="store-account">
@@ -173,22 +175,33 @@ export function StoreChat({ health, customers, orders, onDecision, onActivity }:
 
       {myOrders.length > 0 && (
         <ul className="store-orders" aria-label="Your orders">
-          {myOrders.map((o) => (
-            <li key={o.order_id}>
-              <button
-                type="button"
-                className="order-chip"
-                title="Add this order ID to your message"
-                onClick={() => setDraft((d) => (d.includes(o.order_id) ? d : `${d}${d && !d.endsWith(" ") ? " " : ""}${o.order_id} `))}
-              >
-                <span className="order-chip-label">{o.label || o.order_id}</span>
-                <span className="order-chip-meta">
-                  <span className="mono">{o.order_id}</span>
-                  <span className="num">{money(o.total?.split(" ")[0])}</span>
-                </span>
-              </button>
-            </li>
-          ))}
+          {myOrders.map((o) => {
+            const image = productImage(o);
+            return (
+              <li key={o.order_id}>
+                <button
+                  type="button"
+                  className="order-chip"
+                  title="Add this order ID to your message"
+                  onClick={() => setDraft((d) => (d.includes(o.order_id) ? d : `${d}${d && !d.endsWith(" ") ? " " : ""}${o.order_id} `))}
+                >
+                  {image && (
+                    <span className="order-chip-photo">
+                      <img src={image} alt="" loading="lazy" />
+                    </span>
+                  )}
+                  <span className="order-chip-text">
+                    <span className="order-chip-label">{productName(o)}</span>
+                    <span className="order-chip-meta">
+                      <span className="num">{money(o.total?.split(" ")[0])}</span>
+                      <span>{typeof o.shipping === "string" ? "Not shipped" : "Shipped"}</span>
+                    </span>
+                    <span className="order-chip-id mono">{o.order_id}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 

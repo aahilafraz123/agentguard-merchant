@@ -209,6 +209,8 @@ tests/            guard and agent tests (simulator + scripted Claude, no network
   - **Claude Haiku 5.5** scores conversations for manipulation and compiles the policy (cheap, fast).
   - Both Haiku calls use **structured outputs**; the Sonnet agent has server-side refusal fallbacks enabled.
 - **AG Grid** (community) for the console's review queue, decision log and orders grid.
+- **GPT Image 2.5** (via Higgsfield) generated the demo shop's product and roastery photography;
+  Kettle & Crow and its products are fictional.
 - FastAPI, SQLite, React, Vite, Docker, GitHub Actions, Render.
 
 ## Limitations

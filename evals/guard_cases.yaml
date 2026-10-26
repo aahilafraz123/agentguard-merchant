@@ -84,7 +84,7 @@
   order: priya_filters
   amount: 8.50
   reason: wrong_item
-  messages: ["You sent me the Chemex filters instead of V60 for one of the packs."]
+  messages: ["You sent me the flat-bottom filters instead of the cone ones for one of the packs."]
   expect: allow
 
 - id: review-over-limit

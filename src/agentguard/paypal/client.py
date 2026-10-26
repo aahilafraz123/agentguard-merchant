@@ -44,6 +44,7 @@ class PayPalRestClient:
         self._token: str | None = None
         self._token_expiry = 0.0
         self._lock = threading.Lock()
+        self._carriers: dict[str, str] = {}  # tracker id -> carrier; never changes once set
 
     # -- auth ---------------------------------------------------------------
     def _bearer(self) -> str:
@@ -94,12 +95,16 @@ class PayPalRestClient:
         # Order details omit the carrier; the tracking API has it (ids are "<capture>-<number>").
         raw = (order.get("purchase_units") or [{}])[0].get("shipping", {}).get("trackers") or []
         for tracker, raw_tracker in zip(facts.trackers, raw, strict=False):
-            if tracker.carrier == "OTHER" and raw_tracker.get("id"):
+            tracker_id = raw_tracker.get("id")
+            if tracker.carrier != "OTHER" or not tracker_id:
+                continue
+            if tracker_id not in self._carriers:
                 try:
-                    detail = self._request("GET", f"/v1/shipping/trackers/{raw_tracker['id']}")
-                    tracker.carrier = detail.get("carrier", tracker.carrier)
+                    detail = self._request("GET", f"/v1/shipping/trackers/{tracker_id}")
+                    self._carriers[tracker_id] = detail.get("carrier", "OTHER")
                 except PayPalError:
-                    pass
+                    continue
+            tracker.carrier = self._carriers[tracker_id]
         return facts
 
     # -- writes -------------------------------------------------------------

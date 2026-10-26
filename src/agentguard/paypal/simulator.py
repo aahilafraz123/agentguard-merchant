@@ -21,7 +21,7 @@ class PayPalSimulator:
     def __init__(self) -> None:
         self._orders: dict[str, OrderFacts] = {}
         self._by_capture: dict[str, str] = {}
-        self._request_ids: dict[str, RefundRecord] = {}
+        self._request_ids: dict[str, tuple[str, RefundRecord]] = {}
         self._seq = itertools.count(1)
         self._lock = threading.Lock()
 
@@ -39,7 +39,14 @@ class PayPalSimulator:
     ) -> RefundRecord:
         with self._lock:
             if request_id in self._request_ids:
-                return self._request_ids[request_id]
+                previous_capture, refund = self._request_ids[request_id]
+                if previous_capture != capture_id:  # PayPal rejects a reused id on another request
+                    raise PayPalError(
+                        "PayPal 400: DUPLICATE_REQUEST_ID The value of PayPal-Request-Id header "
+                        "has already been used.",
+                        status=400,
+                    )
+                return refund
             order_id = self._by_capture.get(capture_id)
             if order_id is None:
                 raise PayPalError("PayPal 404: RESOURCE_NOT_FOUND capture", status=404)
@@ -53,7 +60,7 @@ class PayPalSimulator:
             refund = RefundRecord(refund_id=self._id("RF"), amount=amount, status="COMPLETED")
             order.refunds.append(refund)
             order.capture_status = "REFUNDED" if order.refundable == 0 else "PARTIALLY_REFUNDED"
-            self._request_ids[request_id] = refund
+            self._request_ids[request_id] = (capture_id, refund)
             return refund
 
     def create_paid_order(

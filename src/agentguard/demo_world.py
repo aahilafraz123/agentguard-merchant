@@ -63,14 +63,14 @@ ORDERS = [
     DemoOrder(
         "priya_grinder",
         "c_priya",
-        [_item("Baratza Encore Grinder", 1, "149.00")],
+        [_item("Conical Burr Grinder", 1, "149.00")],
         tracking=("FEDEX", "771234567890"),
         label="Grinder, shipped, over auto-approve limit",
     ),
     DemoOrder(
         "priya_filters",
         "c_priya",
-        [_item("V60 Paper Filters (100)", 2, "8.50")],
+        [_item("Cone Paper Filters (100)", 2, "8.50")],
         tracking=("USPS", "9400111899223817402191"),
         label="Filters, shipped",
     ),
@@ -84,7 +84,7 @@ ORDERS = [
     DemoOrder(
         "jordan_kettle",
         "c_jordan",
-        [_item("Fellow Stagg EKG Kettle", 1, "65.00")],
+        [_item("Gooseneck Pour-Over Kettle", 1, "65.00")],
         tracking=("UPS", "1Z999AA10198765432"),
         placed_days_ago=45,
         label="Kettle, shipped, paid 45 days ago",

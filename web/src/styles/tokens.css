@@ -1,90 +1,52 @@
 /*
- * Design tokens. One accent (cobalt) for interaction and focus; green, amber and red are
- * reserved for verdicts (allow, review, block) and never used decoratively.
- * Radius scale: 8px panels and cards, 6px controls, full pills for badges.
+ * Design tokens. Light only: warm paper neutrals, one deep-teal accent for interaction and
+ * focus. Green, amber and red are reserved for verdicts (allow, review, block) and never used
+ * decoratively. Radius scale: 10px panels and cards, 8px controls, full pills for badges.
  */
 :root {
+  color-scheme: light;
+
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Newsreader Variable", "Iowan Old Style", Georgia, serif;
 
-  --bg: #f4f4f2;
-  --surface: #fdfdfc;
-  --surface-2: #f6f6f4;
-  --hover: #f0f0ed;
-  --border: #e3e3df;
-  --border-strong: #cfcfca;
-  --text: #17181a;
-  --text-2: #4f5157;
-  --text-3: #7c7e84;
+  --bg: #f6f2eb;
+  --surface: #fcfaf6;
+  --surface-2: #f3eee6;
+  --hover: #eee8de;
+  --border: #e5ddd1;
+  --border-strong: #d3c9ba;
+  --text: #1c1a17;
+  --text-2: #57524b;
+  --text-3: #8a8378;
 
-  --accent: #3a57d6;
-  --accent-strong: #2a44b8;
-  --accent-soft: #edf0fc;
-  --on-accent: #fdfdfc;
+  --accent: #1d5c60;
+  --accent-strong: #154649;
+  --accent-soft: #e2eceb;
+  --on-accent: #fcfaf6;
 
-  --allow: #1c7a4b;
-  --allow-soft: #e7f3ec;
-  --allow-line: #b7dcc6;
+  --allow: #2b7148;
+  --allow-soft: #e6f0e7;
+  --allow-line: #b9d6c0;
   --review: #9a5c00;
   --review-ink: #a86a00;
-  --review-soft: #fbf1dc;
-  --review-line: #edd29d;
-  --block: #bf2f28;
-  --block-soft: #fbebe9;
-  --block-line: #efbdb8;
-  --neutral-soft: #efefec;
-  --neutral-line: #d9d9d4;
+  --review-soft: #f8eedb;
+  --review-line: #e9d0a0;
+  --block: #b3352b;
+  --block-soft: #f8e9e5;
+  --block-line: #ebbfb6;
+  --neutral-soft: #efe9df;
+  --neutral-line: #dcd3c6;
 
   /* The shop's own brand, used only inside the storefront panel. */
-  --store-bg: #fbfaf8;
+  --store-bg: #faf7f1;
   --store-ink: #241f1b;
-  --store-tan: #b48a5f;
+  --store-tan: #9c7449;
   --bubble-customer: #241f1b;
-  --bubble-customer-text: #fbfaf8;
-  --bubble-agent: #f0eeea;
+  --bubble-customer-text: #faf7f1;
+  --bubble-agent: #efe9df;
 
-  --shadow-pop: 0 12px 32px -12px rgb(23 24 26 / 0.18), 0 2px 6px rgb(23 24 26 / 0.06);
+  --shadow-pop: 0 12px 32px -12px rgb(28 26 23 / 0.18), 0 2px 6px rgb(28 26 23 / 0.06);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --nav-h: 56px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #101113;
-    --surface: #16171a;
-    --surface-2: #1b1c20;
-    --hover: #202126;
-    --border: #2a2b30;
-    --border-strong: #3a3c42;
-    --text: #ececea;
-    --text-2: #a9abb1;
-    --text-3: #7d8086;
-
-    --accent: #8197f2;
-    --accent-strong: #9fb0f6;
-    --accent-soft: #1e2440;
-    --on-accent: #101113;
-
-    --allow: #52c48a;
-    --allow-soft: #15281e;
-    --allow-line: #24533a;
-    --review: #e5a845;
-    --review-ink: #e5a845;
-    --review-soft: #2c2213;
-    --review-line: #5a4320;
-    --block: #f07a72;
-    --block-soft: #2e1817;
-    --block-line: #5e2b28;
-    --neutral-soft: #222327;
-    --neutral-line: #393a40;
-
-    --store-bg: #141312;
-    --store-ink: #efe9e3;
-    --store-tan: #c9a57f;
-    --bubble-customer: #efe9e3;
-    --bubble-customer-text: #141312;
-    --bubble-agent: #23211f;
-
-    --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
-  }
+  --nav-h: 64px;
 }
