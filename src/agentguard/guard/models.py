@@ -42,9 +42,11 @@ class SessionContext(BaseModel):
     """Who is actually signed in. This comes from the storefront session, never from the chat."""
 
     session_id: str
-    customer_id: str
+    # None for an operator session (e.g. a merchant's own agent over MCP): no customer to match.
+    customer_id: str | None
     customer_name: str = ""
     customer_messages: list[str] = Field(default_factory=list)
+    channel: str = "agentguard"  # agentguard (storefront chat) or mcp (MCP proxy)
 
 
 class CheckResult(BaseModel):

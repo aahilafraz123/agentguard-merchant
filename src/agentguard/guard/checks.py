@@ -58,6 +58,13 @@ def ownership(i: CheckInput) -> CheckResult:
     title = "Order belongs to the signed-in customer"
     if i.facts is None:
         return _flag("ownership", title, Outcome.BLOCK, "No PayPal order to check ownership against.")
+    if i.context.customer_id is None:
+        return _ok(
+            "ownership",
+            title,
+            "Operator session: no signed-in customer to match.",
+            order_customer=i.facts.customer_id,
+        )
     if i.facts.customer_id != i.context.customer_id:
         return _flag(
             "ownership",
@@ -185,7 +192,9 @@ def auto_approve_limit(i: CheckInput) -> CheckResult:
 
 def velocity(i: CheckInput) -> CheckResult:
     title = "Customer refund history is normal"
-    count, total = i.store.refund_activity(i.context.customer_id)
+    # Keyed on whoever PayPal says paid, so operator sessions are covered too.
+    customer = (i.facts.customer_id if i.facts else None) or i.context.customer_id or ""
+    count, total = i.store.refund_activity(customer)
     new_count, new_total = count + 1, total + i.request.amount
     evidence = {"refunds_30d": count, "refunded_30d": f"{total:.2f}"}
     if new_count > i.policy.max_refunds_per_customer_30d:

@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     resolved_by TEXT,
     resolved_note TEXT,
     resolved_at TEXT,
-    mode TEXT NOT NULL DEFAULT 'agentguard'
+    mode TEXT NOT NULL DEFAULT 'agentguard',
+    thread_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_decisions_customer ON decisions(customer_id, created_at);
 CREATE TABLE IF NOT EXISTS tickets (
@@ -71,14 +72,23 @@ def utcnow() -> datetime:
 
 class Store:
     def __init__(self, path: Path | str = ":memory:"):
-        if str(path) != ":memory:":
-            Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.path = None if str(path) == ":memory:" else Path(path)
+        if self.path:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         with self._lock:
             self._conn.executescript(SCHEMA)
+            self._migrate()
             self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after a database was first created."""
+        have = {r["name"] for r in self._conn.execute("PRAGMA table_info(decisions)")}
+        for column, ddl in (("mode", "TEXT NOT NULL DEFAULT 'agentguard'"), ("thread_id", "TEXT")):
+            if column not in have:
+                self._conn.execute(f"ALTER TABLE decisions ADD COLUMN {column} {ddl}")
 
     def _exec(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         with self._lock:
