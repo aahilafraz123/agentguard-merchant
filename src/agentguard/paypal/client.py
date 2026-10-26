@@ -107,6 +107,19 @@ class PayPalRestClient:
             tracker.carrier = self._carriers[tracker_id]
         return facts
 
+    def order_for_capture(self, capture_id: str) -> str | None:
+        """The order a capture belongs to (create_refund only names the capture)."""
+        try:
+            capture = self._request("GET", f"/v2/payments/captures/{capture_id}")
+        except PayPalError as exc:
+            if exc.status in (400, 404):
+                return None
+            raise
+        return (capture.get("supplementary_data") or {}).get("related_ids", {}).get("order_id")
+
+    def access_token(self) -> str:
+        return self._bearer()
+
     # -- writes -------------------------------------------------------------
     def refund_capture(
         self, capture_id: str, amount: Decimal, currency: str, note: str, request_id: str
