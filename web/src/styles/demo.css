@@ -363,6 +363,10 @@
   animation: bubble-in 0.3s var(--ease);
 }
 
+.tool-line.is-guarded {
+  color: var(--block);
+}
+
 .chat-error {
   display: flex;
   gap: 9px;

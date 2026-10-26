@@ -24,6 +24,7 @@ type ChatItem =
   | { kind: "verdict"; event: GuardEvent }
   | { kind: "direct"; event: DirectEvent }
   | { kind: "ticket"; summary: string }
+  | { kind: "hidden"; orderId: string }
   | { kind: "error"; text: string };
 
 interface Props {
@@ -58,6 +59,7 @@ function toItems(events: ChatEvent[]): ChatItem[] {
     else if (event.type === "guard_decision") items.push({ kind: "verdict", event });
     else if (event.type === "direct_refund") items.push({ kind: "direct", event });
     else if (event.type === "ticket") items.push({ kind: "ticket", summary: event.summary });
+    else if (event.type === "guard_read_blocked") items.push({ kind: "hidden", orderId: event.order_id });
   }
   return items;
 }
@@ -291,6 +293,13 @@ function ChatLine({ item, onOpen }: { item: ChatItem; onOpen: (id: number) => vo
         <div className="tool-line">
           <Ticket weight="bold" aria-hidden="true" />
           Ticket for the owner: {item.summary}
+        </div>
+      );
+    case "hidden":
+      return (
+        <div className="tool-line is-guarded">
+          <ShieldWarning weight="bold" aria-hidden="true" />
+          AgentGuard hid order {item.orderId}: it belongs to another customer on PayPal
         </div>
       );
     case "error":

@@ -234,7 +234,13 @@ class SupportAgent:
                     self.paypal.get_order(oid).summary() for oid in self.store.orders_for(session.customer_id)
                 ], False
             if name == "get_order":
-                return self.paypal.get_order(args["order_id"]).summary(), False
+                facts = self.paypal.get_order(args["order_id"])
+                guarded = session.mode == GuardMode.AGENTGUARD
+                if guarded and not self.guard.can_read(facts, session.customer_id):
+                    events.append({"type": "guard_read_blocked", "order_id": args["order_id"]})
+                    # Same answer as a missing order, so the chat can't be used to probe order ids.
+                    return {"error": f"No order {args['order_id']} on this customer's account."}, True
+                return facts.summary(), False
             if name == "issue_refund":
                 return self._issue_refund(session, args, events)
             if name == "escalate_to_human":

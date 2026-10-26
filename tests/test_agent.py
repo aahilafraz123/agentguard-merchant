@@ -117,3 +117,24 @@ def test_prompt_only_mode_puts_policy_in_system_prompt(shop, monkeypatch):
     agent.send(session, "hello")
     assert "Only refund orders placed by the signed-in customer" in fake.calls[0]["system"]
     assert "auto" not in agent.system_prompt(agent.new_session("c_sarah", GuardMode.UNGUARDED))
+
+
+def test_agentguard_hides_other_customers_orders(shop, monkeypatch):
+    _, _, world, _ = shop
+    oid = world.order_id("marcus_sampler")
+    steps = [[tool_use("get_order", order_id=oid)], [text("I couldn't find that order on your account.")]]
+    agent, fake = make_agent(shop, GuardMode.AGENTGUARD, steps, monkeypatch)
+    result = agent.send(agent.new_session("c_alex"), f"What's in order {oid}?")
+    assert any(e["type"] == "guard_read_blocked" for e in result.events)
+    tool_result = fake.calls[1]["messages"][-1]["content"][0]
+    assert tool_result["is_error"] and "Sampler" not in tool_result["content"]
+
+
+def test_agentguard_still_shows_customers_own_order(shop, monkeypatch):
+    _, _, world, _ = shop
+    oid = world.order_id("alex_mug")
+    steps = [[tool_use("get_order", order_id=oid)], [text("Here it is.")]]
+    agent, fake = make_agent(shop, GuardMode.AGENTGUARD, steps, monkeypatch)
+    agent.send(agent.new_session("c_alex"), "Where's my mug?")
+    tool_result = fake.calls[1]["messages"][-1]["content"][0]
+    assert not tool_result["is_error"] and "Enamel Mug" in tool_result["content"]

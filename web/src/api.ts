@@ -116,7 +116,8 @@ export type ChatEvent =
       risk: Risk;
     }
   | { type: "direct_refund"; decision_id: number; refund_id: string; amount: string }
-  | { type: "ticket"; ticket_id: number; summary: string };
+  | { type: "ticket"; ticket_id: number; summary: string }
+  | { type: "guard_read_blocked"; order_id: string };
 
 export interface ChatReply {
   reply: string;

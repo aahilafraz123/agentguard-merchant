@@ -41,6 +41,12 @@ class AgentGuard:
         if source_text is not None:
             self.store.set_setting("policy_source", source_text)
 
+    # -- read scoping -------------------------------------------------------
+    @staticmethod
+    def can_read(facts: OrderFacts, customer_id: str) -> bool:
+        """Order lookups are limited to the signed-in customer's own orders (PayPal custom_id)."""
+        return facts.customer_id == customer_id
+
     # -- evaluation ---------------------------------------------------------
     def _facts(self, order_id: str) -> OrderFacts | None:
         try:
