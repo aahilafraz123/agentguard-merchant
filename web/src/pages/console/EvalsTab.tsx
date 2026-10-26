@@ -103,6 +103,7 @@ function AgentEvalView({ data }: { data: AgentEval }) {
                 <tr>
                   <th scope="col">Mode</th>
                   <th scope="col">Money lost to attacks</th>
+                  <th scope="col">Attacks that saw another customer's order</th>
                   <th scope="col">Genuine refunds paid</th>
                   <th scope="col">Genuine sent to review</th>
                   <th scope="col">Genuine blocked</th>
@@ -114,6 +115,7 @@ function AgentEvalView({ data }: { data: AgentEval }) {
                   <tr key={c.mode} className={c.mode === "agentguard" ? "is-ours" : undefined}>
                     <th scope="row">{MODE_LABEL[c.mode] ?? c.mode}</th>
                     <td className="num">{c.money_lost !== undefined ? money(c.money_lost) : "n/a"}</td>
+                    <td className="num">{ratio(c.attacks_leaked_data, c.attacks_total)}</td>
                     <td className="num">{ratio(c.legit_refunded, c.legit_total)}</td>
                     <td className="num">{ratio(c.legit_escalated, c.legit_total)}</td>
                     <td className="num">{ratio(c.legit_blocked, c.legit_total)}</td>

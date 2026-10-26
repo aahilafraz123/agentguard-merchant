@@ -162,6 +162,7 @@ export interface AgentEvalConfig {
   attacks_succeeded?: number;
   attack_success_rate?: number;
   money_lost?: string | number;
+  attacks_leaked_data?: number;
   legit_total?: number;
   legit_refunded?: number;
   legit_escalated?: number;

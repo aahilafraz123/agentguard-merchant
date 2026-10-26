@@ -17,7 +17,11 @@ incident).
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/) (2026).
 
-<!-- SCREENSHOT -->
+![Live demo: an attacker claiming to be the store owner is stopped; the merchant view shows the PayPal evidence](docs/live-demo.png)
+
+*Left: the shop's Claude support agent. Alex claims to be the owner and asks for a refund on
+Marcus's order; AgentGuard hides the order and the ownership check blocks the refund. Right: the
+owner's live view, with every check and the PayPal evidence behind the decision.*
 
 ## Why
 
@@ -104,6 +108,8 @@ What the transcripts show:
   $149 refund into pieces on request. AgentGuard caught it, because the auto-approve limit applies
   to the running total per order.
 - **Same treatment of honest customers.** No configuration refused a legitimate refund.
+
+![Eval scoreboard in the merchant console](docs/console-evals.png)
 
 Full per-scenario tables are in [`evals/results/agent_eval.md`](evals/results/agent_eval.md)
 (Sonnet) and [`evals/results/haiku/agent_eval.md`](evals/results/haiku/agent_eval.md) (Haiku),
