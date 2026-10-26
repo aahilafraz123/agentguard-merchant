@@ -16,6 +16,7 @@ from .config import settings
 log = logging.getLogger(__name__)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+FALLBACK_MODELS = {"claude-sonnet-5-5"}
 _fallbacks_ok = settings.use_fallbacks
 
 # Running token totals per model, so eval runs can report what they cost.
@@ -46,7 +47,8 @@ def client() -> anthropic.Anthropic:
 
 
 def _with_fallbacks(kwargs: dict[str, Any]) -> dict[str, Any]:
-    if not _fallbacks_ok:
+    # Haiku has no server-side refusal fallback; Sonnet 5.5 accepts the "default" form.
+    if not _fallbacks_ok or kwargs.get("model") not in FALLBACK_MODELS:
         return kwargs
     return {**kwargs, "betas": [*kwargs.get("betas", []), FALLBACK_BETA], "fallbacks": "default"}
 

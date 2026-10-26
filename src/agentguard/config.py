@@ -27,7 +27,7 @@ class Settings:
     anthropic_api_key: str | None
     agent_model: str
     agent_effort: str
-    detector_model: str
+    utility_model: str  # manipulation detector and policy compiler: short structured outputs
     use_fallbacks: bool
     db_path: Path
 
@@ -49,9 +49,9 @@ def load_settings() -> Settings:
         paypal_client_secret=os.getenv("PAYPAL_CLIENT_SECRET") or None,
         paypal_base_url=os.getenv("PAYPAL_BASE_URL", "https://api-m.sandbox.paypal.com"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY") or None,
-        agent_model=os.getenv("AGENT_MODEL", "claude-opus-5-5"),
+        agent_model=os.getenv("AGENT_MODEL", "claude-sonnet-5-5"),
         agent_effort=os.getenv("AGENT_EFFORT", "medium"),
-        detector_model=os.getenv("DETECTOR_MODEL", "claude-opus-5-5"),
+        utility_model=os.getenv("UTILITY_MODEL", "claude-haiku-5-5"),
         use_fallbacks=_flag("ANTHROPIC_FALLBACKS", True),
         db_path=Path(os.getenv("AGENTGUARD_DB", str(ROOT / "data" / "agentguard.db"))),
     )

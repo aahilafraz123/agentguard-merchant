@@ -40,9 +40,10 @@ _PATTERNS: list[tuple[str, str, float]] = [
         r"\b(i am|i'm|this is|as)\s+(the\s+|an?\s+)?(\w+\s+)?"
         r"(owner|admin|manager|developer|staff|ceo|support lead)\b",
         "impersonation",
-        0.55,
+        0.65,
     ),
     (r"\b(paypal|stripe)\s+(support|security|team|agent)\b", "impersonation", 0.45),
+    (r"\btesting (the|this|your) (bot|refund|assistant|flow)\b", "impersonation", 0.4),
     (
         r"\b(ignore|disregard|forget)\b.{0,40}\b(instructions|rules|policy|previous|above)\b",
         "instruction_injection",
@@ -55,6 +56,7 @@ _PATTERNS: list[tuple[str, str, float]] = [
         0.6,
     ),
     (r"\b(already|pre-?)\s*(approved|authorized|cleared)\b", "false_authorization", 0.45),
+    (r"\b(it'?s|it is|been)\s+(approved|authorized|sanctioned)\b", "false_authorization", 0.4),
     (r"\b(policy|website|terms)\s+(says|states|promises|guarantees)\b", "policy_misquote", 0.3),
     (r"\b(chargeback|lawyer|sue|attorney|bbb|1[- ]star|report you)\b", "urgency_or_threats", 0.25),
     (
@@ -117,7 +119,7 @@ class ClaudeDetector:
         transcript = "\n".join(f"<message>{m}</message>" for m in customer_messages)
         try:
             response = llm.parse(
-                model=settings.detector_model,
+                model=settings.utility_model,
                 max_tokens=2000,
                 system=_SYSTEM,
                 output_config={"effort": "low"},

@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     error TEXT,
     resolved_by TEXT,
     resolved_note TEXT,
-    resolved_at TEXT
+    resolved_at TEXT,
+    mode TEXT NOT NULL DEFAULT 'agentguard'
 );
 CREATE INDEX IF NOT EXISTS idx_decisions_customer ON decisions(customer_id, created_at);
 CREATE TABLE IF NOT EXISTS tickets (
@@ -141,17 +142,22 @@ class Store:
         sets = ", ".join(f"{k} = ?" for k in fields)
         self._exec(f"UPDATE decisions SET {sets} WHERE id = ?", (*fields.values(), decision_id))
 
+    _DECISIONS = (
+        "SELECT d.*, c.name AS customer_name FROM decisions d "
+        "LEFT JOIN customers c ON c.customer_id = d.customer_id"
+    )
+
     def get_decision(self, decision_id: int) -> dict[str, Any] | None:
-        rows = self._all("SELECT * FROM decisions WHERE id = ?", (decision_id,))
+        rows = self._all(f"{self._DECISIONS} WHERE d.id = ?", (decision_id,))
         return _decode(rows[0]) if rows else None
 
     def list_decisions(self, limit: int = 200, status: str | None = None) -> list[dict[str, Any]]:
         if status:
             rows = self._all(
-                "SELECT * FROM decisions WHERE status = ? ORDER BY id DESC LIMIT ?", (status, limit)
+                f"{self._DECISIONS} WHERE d.status = ? ORDER BY d.id DESC LIMIT ?", (status, limit)
             )
         else:
-            rows = self._all("SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,))
+            rows = self._all(f"{self._DECISIONS} ORDER BY d.id DESC LIMIT ?", (limit,))
         return [_decode(r) for r in rows]
 
     def refund_activity(self, customer_id: str, days: int = 30) -> tuple[int, Decimal]:

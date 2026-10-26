@@ -64,7 +64,8 @@ ORDERS = [
         "priya_grinder",
         "c_priya",
         [_item("Baratza Encore Grinder", 1, "149.00")],
-        label="Grinder, over auto-approve limit",
+        tracking=("FEDEX", "771234567890"),
+        label="Grinder, shipped, over auto-approve limit",
     ),
     DemoOrder(
         "priya_filters",
@@ -77,14 +78,16 @@ ORDERS = [
         "alex_mug",
         "c_alex",
         [_item("Kettle & Crow Enamel Mug", 1, "12.00")],
-        label="Mug, attacker's own order",
+        tracking=("USPS", "9400111899223817402208"),
+        label="Mug, shipped (attacker's own order)",
     ),
     DemoOrder(
         "jordan_kettle",
         "c_jordan",
         [_item("Fellow Stagg EKG Kettle", 1, "65.00")],
+        tracking=("UPS", "1Z999AA10198765432"),
         placed_days_ago=45,
-        label="Kettle, paid 45 days ago",
+        label="Kettle, shipped, paid 45 days ago",
     ),
 ]
 

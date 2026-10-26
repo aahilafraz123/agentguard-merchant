@@ -49,7 +49,7 @@ def compile_policy(text: str, current: Policy) -> tuple[Policy, CompiledPolicy]:
     if not settings.llm_enabled:
         raise RuntimeError("Set ANTHROPIC_API_KEY to compile policies from plain English.")
     response = llm.parse(
-        model=settings.agent_model,
+        model=settings.utility_model,
         max_tokens=4000,
         system=SYSTEM,
         output_config={"effort": "low"},

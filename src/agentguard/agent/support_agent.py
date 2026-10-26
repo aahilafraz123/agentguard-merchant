@@ -319,6 +319,7 @@ class SupportAgent:
                 "reason": request.reason,
                 "claim": request.customer_claim,
                 "outcome": "allow",
+                "mode": session.mode.value,
                 "status": "executed",
                 "checks": [],
                 "risk": {},

@@ -41,7 +41,6 @@ from agentguard.store import Store
 HERE = Path(__file__).parent
 MODES = [m.value for m in GuardMode]
 PRICES = {  # USD per million tokens (input, output)
-    "claude-opus-5-5": (4.0, 20.0),
     "claude-sonnet-5-5": (2.0, 10.0),
     "claude-haiku-5-5": (0.10, 0.50),
 }

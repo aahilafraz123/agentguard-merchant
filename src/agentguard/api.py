@@ -58,6 +58,7 @@ def health() -> dict[str, Any]:
         "paypal_mode": rt.paypal.mode,
         "llm_enabled": settings.llm_enabled,
         "agent_model": settings.agent_model,
+        "utility_model": settings.utility_model,
         "detector": type(rt.guard.detector).__name__,
     }
 
@@ -243,6 +244,8 @@ def stats() -> dict[str, Any]:
     return {
         "decisions": len(rows),
         "allowed": sum(r["status"] == "executed" for r in rows),
+        "approved": sum(r["status"] == "approved" for r in rows),
+        "denied": sum(r["status"] == "denied" for r in rows),
         "pending": sum(r["status"] == "pending" for r in rows),
         "blocked": sum(r["status"] == "blocked" for r in rows),
         "refunded_total": total({"executed", "approved"}),
