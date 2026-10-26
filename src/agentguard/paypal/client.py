@@ -89,7 +89,18 @@ class PayPalRestClient:
 
     # -- reads --------------------------------------------------------------
     def get_order(self, order_id: str) -> OrderFacts:
-        return _facts_from_order(self._request("GET", f"/v2/checkout/orders/{order_id}"))
+        order = self._request("GET", f"/v2/checkout/orders/{order_id}")
+        facts = _facts_from_order(order)
+        # Order details omit the carrier; the tracking API has it (ids are "<capture>-<number>").
+        raw = (order.get("purchase_units") or [{}])[0].get("shipping", {}).get("trackers") or []
+        for tracker, raw_tracker in zip(facts.trackers, raw, strict=False):
+            if tracker.carrier == "OTHER" and raw_tracker.get("id"):
+                try:
+                    detail = self._request("GET", f"/v1/shipping/trackers/{raw_tracker['id']}")
+                    tracker.carrier = detail.get("carrier", tracker.carrier)
+                except PayPalError:
+                    pass
+        return facts
 
     # -- writes -------------------------------------------------------------
     def refund_capture(
