@@ -1,12 +1,23 @@
 import { CheckCircle, XCircle } from "@phosphor-icons/react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useMemo } from "react";
-import { api, type AgentEval, type AgentEvalConfig, type AgentEvalScenario, type GuardEval, type GuardMode } from "../../api";
+import {
+  api,
+  type AgentEval,
+  type AgentEvalConfig,
+  type AgentEvalScenario,
+  type DetectorEval,
+  type DetectorScore,
+  type GuardEval,
+  type GuardInterventions,
+  type GuardMode,
+} from "../../api";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
 import { Grid } from "../../components/Grid";
 import { MODE_LABEL, dateTime, humanize, money, percent, toNumber, type Tone } from "../../format";
 import { usePoll } from "../../hooks";
+import { NUMERIC } from "./columns";
 
 const MODES: GuardMode[] = ["unguarded", "prompt_only", "agentguard"];
 
@@ -20,7 +31,8 @@ export function EvalsTab() {
   const evals = usePoll(api.evals, 0);
   if (evals.error) return <p className="form-error">Could not load evals: {evals.error.message}</p>;
   if (!evals.data) return <div className="skeleton-block" aria-busy="true" />;
-  const { agent_eval, guard_eval } = evals.data;
+  const { agent_eval, guard_eval, detector_eval } = evals.data;
+  const interventions = agent_eval?.guard_interventions;
 
   return (
     <div className="panel-stack evals">
@@ -39,6 +51,9 @@ export function EvalsTab() {
             Results appear here once <code>evals/results/agent_eval.json</code> exists.
           </EmptyState>
         </section>
+      )}
+      {(detector_eval?.detectors?.length || interventions) && (
+        <DetectionView detector={detector_eval} interventions={interventions} agentModel={agent_eval?.model} />
       )}
       {guard_eval ? (
         <GuardEvalView data={guard_eval} />
@@ -219,6 +234,100 @@ function ScenarioGrid({ scenarios }: { scenarios: AgentEvalScenario[] }) {
         <p className="card-meta">Pass means the bot did the right thing: paid a genuine refund, or moved no money for an attack.</p>
       </div>
       <Grid rows={scenarios} columns={columns} rowId={(s) => s.id} pageSize={25} />
+    </section>
+  );
+}
+
+/** null means undefined (nothing flagged, or no positives); shown as n/a. */
+const pct = (v: number | null | undefined) => percent(v ?? undefined);
+
+function DetectionView({
+  detector,
+  interventions: gi,
+  agentModel,
+}: {
+  detector?: DetectorEval | null;
+  interventions?: GuardInterventions | null;
+  agentModel?: string;
+}) {
+  const columns = useMemo<ColDef<DetectorScore>[]>(
+    () => [
+      { headerName: "Manipulation detector", field: "label", flex: 1, minWidth: 200 },
+      ...(["precision", "recall", "f1"] as const).map(
+        (field): ColDef<DetectorScore> => ({
+          headerName: { precision: "Precision", recall: "Recall", f1: "F1" }[field],
+          field,
+          width: 104,
+          type: "rightAligned",
+          valueFormatter: (p) => pct(p.value),
+          filter: false,
+          cellClass: field === "f1" ? [...NUMERIC, "strong"] : NUMERIC,
+        }),
+      ),
+      {
+        headerName: "False alarms",
+        colId: "fp",
+        width: 124,
+        type: "rightAligned",
+        valueGetter: (p) => p.data?.fp,
+        valueFormatter: (p) => (p.data ? `${p.data.fp} of ${p.data.fp + p.data.tn}` : ""),
+        filter: false,
+        cellClass: NUMERIC,
+      },
+    ],
+    [],
+  );
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h3 className="card-title">Detection quality</h3>
+        <Provenance
+          at={detector?.generated_at}
+          extra={[
+            detector?.cases !== undefined &&
+              `${detector.cases} hand-labeled chats (${detector.manipulative} manipulative, ${detector.genuine} genuine)`,
+            detector?.threshold !== undefined && `flagged at risk ${detector.threshold} or above, the guard's review cut-off`,
+          ]}
+        />
+      </div>
+      <div className="guard-eval">
+        {gi && (
+          <div className="guard-score">
+            <span className="guard-score-value num">
+              {pct(gi.precision)} / {pct(gi.recall)}
+            </span>
+            <span className="guard-score-label">
+              Precision / recall of guard interventions (block, escalate or hidden order) in the red-team eval{agentModel ? ` (${agentModel})` : ""}
+            </span>
+            <dl className="guard-facts">
+              <div>
+                <dt>Attacks the guard caught</dt>
+                <dd className="num">{ratio(gi.attacks_intervened, gi.attacks_total)}</dd>
+              </div>
+              <div>
+                <dt>Genuine chats interrupted</dt>
+                <dd className="num">{ratio(gi.fp, gi.legit_total)}</dd>
+              </div>
+              <div>
+                <dt>Owner cases escalated</dt>
+                <dd className="num">{ratio(gi.review_intervened, gi.review_total)}</dd>
+              </div>
+              <div>
+                <dt>Attacks that got money</dt>
+                <dd className="num">{ratio(gi.attacks_succeeded, gi.attacks_total)}</dd>
+              </div>
+            </dl>
+            <p className="card-meta">The agent refused the attacks the guard didn't touch.</p>
+          </div>
+        )}
+        {detector?.detectors?.length ? (
+          <Grid rows={detector.detectors} columns={columns} rowId={(d) => d.detector} />
+        ) : (
+          <EmptyState title="The detector eval has not been run yet">
+            Run <code>evals/run_detector_eval.py</code> to score the detectors.
+          </EmptyState>
+        )}
+      </div>
     </section>
   );
 }

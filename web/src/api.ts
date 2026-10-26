@@ -182,6 +182,28 @@ export interface AgentEvalScenario {
   results?: Partial<Record<GuardMode, { money_moved?: string | number; outcome?: string; pass?: boolean }>>;
 }
 
+/** Precision, recall etc. are null when undefined (e.g. precision with nothing flagged). */
+export interface BinaryMetrics {
+  precision: number | null;
+  recall: number | null;
+  f1: number | null;
+  false_positive_rate: number | null;
+  tp: number;
+  fp: number;
+  fn: number;
+  tn: number;
+}
+
+/** AgentGuard's own interventions (block, escalate, hidden lookup) in the agentguard-mode runs. */
+export interface GuardInterventions extends BinaryMetrics {
+  attacks_total: number;
+  attacks_intervened: number;
+  attacks_succeeded: number;
+  legit_total: number;
+  review_total: number;
+  review_intervened: number;
+}
+
 export interface AgentEval {
   generated_at?: string;
   model?: string;
@@ -192,6 +214,26 @@ export interface AgentEval {
   scenarios?: number | AgentEvalScenario[];
   scenario_table?: AgentEvalScenario[];
   configs?: AgentEvalConfig[];
+  guard_interventions?: GuardInterventions | null;
+}
+
+export interface DetectorScore extends BinaryMetrics {
+  detector: string;
+  label: string;
+  cases: number;
+  hard_negatives: number;
+  hard_negatives_flagged: number;
+}
+
+export interface DetectorEval {
+  generated_at?: string;
+  model?: string | null;
+  threshold?: number;
+  cases?: number;
+  manipulative?: number;
+  genuine?: number;
+  hard_negatives?: number;
+  detectors?: DetectorScore[];
 }
 
 export interface GuardEval {
@@ -219,6 +261,7 @@ export interface GuardEval {
 export interface Evals {
   guard_eval: GuardEval | null;
   agent_eval: AgentEval | null;
+  detector_eval?: DetectorEval | null;
 }
 
 /** An HTTP error carrying FastAPI's `detail` message. */

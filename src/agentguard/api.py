@@ -314,7 +314,7 @@ RESULTS = ROOT / "evals" / "results"
 @app.get("/api/evals")
 def evals() -> dict[str, Any]:
     out: dict[str, Any] = {}
-    for name in ("guard_eval", "agent_eval"):
+    for name in ("guard_eval", "agent_eval", "detector_eval"):
         path = RESULTS / f"{name}.json"
         out[name] = json.loads(path.read_text()) if path.exists() else None
     return out
