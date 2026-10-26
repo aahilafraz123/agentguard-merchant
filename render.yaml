@@ -1,8 +1,11 @@
+# Render Blueprint. Deploys are triggered by GitHub Actions (deploy hook) after CI passes,
+# so autoDeploy is off.
 services:
   - type: web
     name: agentguard
     runtime: docker
     plan: free
+    autoDeploy: false
     healthCheckPath: /api/health
     envVars:
       - key: PAYPAL_CLIENT_ID

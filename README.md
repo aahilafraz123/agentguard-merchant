@@ -7,13 +7,20 @@
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![PayPal Sandbox](https://img.shields.io/badge/PayPal-Sandbox-003087)
 
-AgentGuard is a policy checkpoint between a merchant's AI customer-support agent and PayPal.
-The agent can chat, look up orders and *propose* refunds. Every refund it proposes is checked
-against **PayPal's own records**: who placed the order, what was captured and already refunded,
-and whether tracking shows it shipped. It is also checked against the merchant's refund policy
-and the customer's refund history. Each request is then **allowed** (the refund executes on PayPal),
-**escalated** (the owner approves or denies it in a review queue) or **blocked** (logged as an
-incident).
+AgentGuard is a policy checkpoint between AI agents and PayPal. Every refund an agent asks for
+is checked against **PayPal's own records**: who placed the order, what was captured and already
+refunded, and whether tracking shows it shipped. It is also checked against the merchant's refund
+policy, the customer's refund history and a Claude risk agent. Each request is then **allowed**
+(the refund executes on PayPal), **escalated** (the owner approves or denies it in a review queue)
+or **blocked** (logged as an incident).
+
+It plugs in two ways:
+
+- **Inside an AI support agent.** The demo shop's Claude support bot calls AgentGuard instead of
+  PayPal.
+- **As an MCP security proxy** (`agentguard-mcp`) in front of **PayPal's official MCP server**,
+  which is built on the PayPal Agent Toolkit. Any MCP client gets PayPal's 28 tools, but
+  `create_refund` is policy-checked first and irreversible actions need a human.
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/) (2026).
 
@@ -44,18 +51,49 @@ the source of truth.**
 ```mermaid
 flowchart LR
     C[Customer chat] --> A[Support agent<br/>Claude + tools]
-    A -- "issue_refund(order, amount, reason)" --> G{AgentGuard}
-    P[(PayPal<br/>Orders v2 · Payments v2<br/>Tracking)] -- ground truth --> G
-    S[(Session · refund history<br/>merchant policy)] --> G
-    D[Manipulation detector<br/>Claude, structured output] -- risk score --> G
-    G -- allow --> R[Refund executes<br/>on PayPal]
+    M[Any MCP client<br/>Claude Desktop, agents] --> X[agentguard-mcp<br/>MCP proxy]
+    A -- "issue_refund" --> G{AgentGuard<br/>LangGraph pipeline}
+    X -- "create_refund" --> G
+    X -- reads pass through --> T[PayPal MCP server<br/>Agent Toolkit]
+    P[(PayPal REST<br/>Orders · Payments · Tracking)] -- ground truth --> G
+    G -- allow --> R[Refund executes on PayPal<br/>REST or Agent Toolkit]
     G -- escalate --> Q[Owner review queue<br/>approve / deny]
     G -- block --> I[Incident log]
-    Q -- approve: re-check, then refund --> R
+    Q -- resume graph: re-check, then refund --> R
 ```
 
+### The decision pipeline (LangGraph)
+
+The guard is a LangGraph state graph. This diagram is generated from the compiled graph:
+
+```mermaid
+graph TD
+    __start__([start]) --> load_evidence
+    load_evidence --> assess_risk
+    assess_risk --> check_policy
+    check_policy --> record
+    record -. allow .-> execute
+    record -. escalate .-> human_review
+    record -. block .-> __end__([end])
+    human_review -. approve .-> recheck
+    human_review -. deny .-> deny
+    recheck -. still valid .-> execute
+    recheck -. order changed .-> __end__
+    execute --> __end__
+    deny --> __end__
+```
+
+- **load_evidence** reads the order, capture, refunds and trackers from PayPal.
+- **assess_risk** is the Claude risk agent: Haiku 5.5 with structured output scores what the
+  customer said for social engineering and prompt injection.
+- **check_policy** runs the nine deterministic checks below.
+- **human_review** pauses the graph with `interrupt()`. The paused run is checkpointed in SQLite,
+  so the owner can approve from the console minutes or days later, even after a restart or from
+  another process: a refund paused inside the MCP proxy is approved in the web console. Approving
+  resumes the graph, which re-checks PayPal before executing.
+
 The signed-in customer comes from the storefront session, **never from the chat**. The agent's
-`issue_refund` call is treated as an untrusted request. AgentGuard then runs nine checks:
+refund call is treated as an untrusted request. The nine checks:
 
 | Check | Source of truth | Fails to |
 |---|---|---|
@@ -159,6 +197,44 @@ with one cheap order, and so on.
 Flip **AgentGuard off** in the chat panel to compare. Marcus saying "the manager already approved it"
 or Jordan saying "I bought it last week" often gets paid by the unguarded agent (see the eval).
 
+## MCP security proxy
+
+`agentguard-mcp` launches PayPal's MCP server (`npx @paypal/mcp`, built on the PayPal Agent
+Toolkit) with a fresh sandbox token, then serves its tools over stdio:
+
+| Tool | What AgentGuard does |
+|---|---|
+| `get_order`, `list_transactions`, `get_refund`, ... | Passes through unchanged |
+| `create_refund` | Runs the LangGraph pipeline. Allowed refunds are executed by the **Agent Toolkit's own** `create_refund`; escalations wait in the console's review queue; blocked ones never reach PayPal |
+| `accept_dispute_claim`, `cancel_subscription`, `cancel_sent_invoice` | Refused and ticketed for a human. These are irreversible and have no amount to check |
+
+```bash
+uv run agentguard-mcp                                    # operator session (merchant's own agent)
+AGENTGUARD_CUSTOMER_ID=c_alex uv run agentguard-mcp      # bound to one storefront customer
+uv run python scripts/mcp_demo.py                        # drive it like an agent would
+```
+
+To use it from Claude Desktop, add it as an MCP server:
+
+```json
+{
+  "mcpServers": {
+    "paypal-guarded": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/agentguard-merchant", "agentguard-mcp"]
+    }
+  }
+}
+```
+
+Against the sandbox, `scripts/mcp_demo.py` showed the following:
+
+- A $5 refund passed all nine checks and was executed by the Agent Toolkit.
+- A $149 refund paused for review, was approved from the web console in a separate process, and
+  then executed.
+- A $60 refund on a $12 order was blocked.
+- `accept_dispute_claim` was refused.
+
 ## Evals
 
 ```bash
@@ -185,16 +261,18 @@ uv run python evals/run_agent_eval.py               # 24 conversations x 3 confi
 
 ```
 src/agentguard/
-  guard/          checks.py (the nine checks) · engine.py (decide, record, execute, approve)
-                  detector.py (Claude + keyword manipulation scoring) · policy.py
+  guard/          engine.py (LangGraph pipeline, interrupt-based approval) · checks.py (the nine checks)
+                  detector.py (Claude risk agent + keyword baseline) · policy.py
+  mcp_proxy.py    agentguard-mcp: MCP security proxy in front of PayPal's MCP server
   paypal/         client.py (REST: Orders v2, Payments v2 refunds, tracking) · simulator.py
   agent/          support_agent.py (Claude tool loop; unguarded / prompt-only / agentguard modes)
   policy_compiler.py   plain-English policy → structured policy (Claude structured outputs)
   api.py          FastAPI: chat, decisions, approvals, policy, evals; serves the web UI
   demo_world.py   the demo shop, customers and orders
 web/              React + TypeScript + AG Grid merchant console and storefront chat
-evals/            guard eval, red-team conversations, results
-tests/            guard and agent tests (simulator + scripted Claude, no network)
+evals/            guard eval, detector eval, red-team conversations, results
+scripts/          mcp_demo.py (drives the MCP proxy against the sandbox)
+tests/            guard, LangGraph pipeline, MCP proxy and agent tests (no network)
 ```
 
 ## Built with
@@ -203,15 +281,31 @@ tests/            guard and agent tests (simulator + scripted Claude, no network
   - OAuth 2.0 client credentials
   - Orders v2 (create with card payment source, capture, show order details)
   - Payments v2 (`POST /v2/payments/captures/{id}/refund`, with idempotent `PayPal-Request-Id`)
-  - Order shipment tracking (`POST /v2/checkout/orders/{id}/track`)
+  - Order shipment tracking (`POST /v2/checkout/orders/{id}/track`, `GET /v1/shipping/trackers`)
+- **PayPal Agent Toolkit**: its MCP server (`@paypal/mcp`) sits behind `agentguard-mcp` and
+  executes the refunds AgentGuard approves.
 - **AI:**
+  - **LangGraph** orchestrates the decision pipeline. Human approval uses `interrupt()` with
+    SQLite checkpoints.
   - **Claude Sonnet 5.5** (Anthropic API, Python SDK) runs the support agent's tool loop.
   - **Claude Haiku 5.5** scores conversations for manipulation and compiles the policy (cheap, fast).
   - Both Haiku calls use **structured outputs**; the Sonnet agent has server-side refusal fallbacks enabled.
 - **AG Grid** (community) for the console's review queue, decision log and orders grid.
 - **GPT Image 2.5** (via Higgsfield) generated the demo shop's product and roastery photography;
   Kettle & Crow and its products are fictional.
+- **MCP Python SDK** for the proxy (client to PayPal's server, server to the agent).
 - FastAPI, SQLite, React, Vite, Docker, GitHub Actions, Render.
+
+## CI/CD
+
+Every push runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+1. Lint, unit tests, the guard eval and the keyword detector eval. All of these run with no API
+   calls.
+2. The web build.
+3. The Docker image is built and pushed to GitHub Container Registry
+   (`ghcr.io/aahilafraz123/agentguard-merchant`).
+4. On `main`, a Render deploy hook ships the new image, but only if every earlier job passed.
 
 ## Limitations
 
