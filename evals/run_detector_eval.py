@@ -6,9 +6,10 @@
 A chat is flagged when its score reaches Policy().manipulation_threshold, the same cut-off the
 guard uses to send a refund to review. Three detectors are scored on the same chats:
 
-    keyword   HeuristicDetector, regexes only
-    claude    ClaudeDetector exactly as the guard runs it: max(Haiku score, keyword score)
-    haiku     the Haiku score on its own, read from the same API call (no second call)
+    keyword   HeuristicDetector, regexes only (the guard's fallback)
+    claude    ClaudeDetector exactly as the guard runs it (Haiku 5.5)
+    ensemble  max(Claude, keyword), the guard's earlier design, computed from the same two
+              scores (no extra call) to show why it was dropped
 """
 
 from __future__ import annotations
@@ -16,14 +17,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
-from agentguard import llm
 from agentguard.config import settings
 from agentguard.eval_metrics import binary_metrics, cost_usd
 from agentguard.guard import ClaudeDetector, HeuristicDetector, Policy
@@ -31,21 +30,11 @@ from agentguard.guard.detector import TACTICS
 
 HERE = Path(__file__).parent
 SWEEP = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-LABEL = {"keyword": "Keyword", "claude": "Claude (Haiku + keyword)", "haiku": "Haiku alone"}
-
-# ClaudeDetector returns max(Haiku, keyword). To also score Haiku on its own without a second
-# call, wrap llm.parse and keep the raw structured output of the call made on this thread.
-_last_parse = threading.local()
-
-
-def _record_raw_score(parse):
-    def wrapper(**kwargs):
-        response = parse(**kwargs)
-        parsed = getattr(response, "parsed_output", None)
-        _last_parse.score = parsed.score if parsed is not None else None
-        return response
-
-    return wrapper
+LABEL = {
+    "keyword": "Keyword",
+    "claude": "Claude Haiku 5.5 (guard)",
+    "ensemble": "max(Claude, keyword) (earlier design)",
+}
 
 
 def score_case(case: dict, keyword: HeuristicDetector, claude: ClaudeDetector | None) -> dict:
@@ -60,14 +49,12 @@ def score_case(case: dict, keyword: HeuristicDetector, claude: ClaudeDetector | 
         "tactics": {"keyword": kw.tactics},
     }
     if claude is not None:
-        _last_parse.score = None
         assessed = claude.assess(case["messages"])
         row["scores"]["claude"] = assessed.score
         row["tactics"]["claude"] = assessed.tactics
         row["claude_source"] = assessed.source  # "heuristic" means the API call failed
         row["rationale"] = assessed.rationale
-        if assessed.source == "llm" and _last_parse.score is not None:
-            row["scores"]["haiku"] = round(_last_parse.score, 3)
+        row["scores"]["ensemble"] = max(assessed.score, kw.score)
     return row
 
 
@@ -187,14 +174,13 @@ def main() -> int:
 
     claude = None
     if not args.keyword_only:
-        llm.parse = _record_raw_score(llm.parse)
         claude = ClaudeDetector()
     keyword = HeuristicDetector()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         rows = list(pool.map(lambda c: score_case(c, keyword, claude), cases))
 
     threshold = Policy().manipulation_threshold
-    names = ["keyword"] + ([] if args.keyword_only else ["claude", "haiku"])
+    names = ["keyword"] + ([] if args.keyword_only else ["claude", "ensemble"])
     cost, usage_detail = cost_usd()
     report = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),

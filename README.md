@@ -153,6 +153,36 @@ Full per-scenario tables are in [`evals/results/agent_eval.md`](evals/results/ag
 (Sonnet) and [`evals/results/haiku/agent_eval.md`](evals/results/haiku/agent_eval.md) (Haiku),
 and every transcript is saved next to them. The whole eval cost about $6.70 in API calls.
 
+### Detection quality
+
+**Manipulation detector.** Measured on 60 labeled chats (30 manipulative across 8 tactics, 30
+genuine, 17 of them hard negatives such as angry customers who mention chargebacks), flagged at
+the guard's 0.6 threshold:
+
+| Detector | Precision | Recall | F1 | False alarms on genuine chats |
+|---|---|---|---|---|
+| Keyword baseline | 50% | 13% | 21% | 4 / 30 |
+| **Claude Haiku 5.5 (what the guard runs)** | **96%** | **77%** | **85%** | **1 / 30** |
+| max(Claude, keyword) (earlier design) | 82% | 77% | 79% | 5 / 30 |
+
+The earlier design combined the two scores. The eval showed that this let every keyword false
+alarm through without catching anything extra, so the guard now uses Haiku and keeps keywords
+only as a fallback. Haiku catches every impersonation, injection, fake-policy, false-approval and
+third-party case. It misses quieter pressure tactics (threats, inflated amounts, split requests)
+scored 0.4–0.5. Those are covered by the deterministic checks: in the red-team runs, no split or
+inflated refund got paid.
+
+**Guard interventions in the red-team runs.** AgentGuard steps in when it blocks or escalates a
+refund, or hides an order:
+
+| Agent model | Precision | Recall | Genuine conversations interrupted |
+|---|---|---|---|
+| Sonnet 5.5 | 100% (24/24) | 75% (24/32) | 0 / 12 |
+| Haiku 5.5 | 100% (31/31) | 65% (31/48) | 0 / 18 |
+
+In the attack runs where the guard didn't step in, the agent refused on its own, so no money
+moved either way. Details: [`evals/results/detector_eval.md`](evals/results/detector_eval.md).
+
 The deterministic guard eval (30 labeled refund requests sent straight to the guard, as if the
 agent were fully jailbroken) gets **30/30** with zero attacks moving money. It runs in CI on
 every push.
@@ -239,6 +269,7 @@ Against the sandbox, `scripts/mcp_demo.py` showed the following:
 
 ```bash
 uv run python evals/run_guard_eval.py               # 30 labeled requests, no API calls (runs in CI)
+uv run python evals/run_detector_eval.py            # 60 labeled chats, precision/recall (~1 cent)
 uv run python evals/run_agent_eval.py --dry-run     # plan for the end-to-end red-team eval
 uv run python evals/run_agent_eval.py               # 24 conversations x 3 configs (Claude API cost)
 ```
