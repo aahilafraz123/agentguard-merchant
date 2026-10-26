@@ -30,9 +30,7 @@ class PayPalGateway(Protocol):
         self, customer_id: str, customer_name: str, items: list[LineItem], currency: str = "USD"
     ) -> OrderFacts: ...
 
-    def add_tracking(
-        self, order_id: str, capture_id: str, tracking_number: str, carrier: str
-    ) -> None: ...
+    def add_tracking(self, order_id: str, capture_id: str, tracking_number: str, carrier: str) -> None: ...
 
 
 class PayPalRestClient:
@@ -125,9 +123,7 @@ class PayPalRestClient:
                     "amount": {
                         "currency_code": currency,
                         "value": f"{total:.2f}",
-                        "breakdown": {
-                            "item_total": {"currency_code": currency, "value": f"{total:.2f}"}
-                        },
+                        "breakdown": {"item_total": {"currency_code": currency, "value": f"{total:.2f}"}},
                     },
                     "items": [
                         {
@@ -159,9 +155,7 @@ class PayPalRestClient:
             )
         return self.get_order(created["id"])
 
-    def add_tracking(
-        self, order_id: str, capture_id: str, tracking_number: str, carrier: str
-    ) -> None:
+    def add_tracking(self, order_id: str, capture_id: str, tracking_number: str, carrier: str) -> None:
         self._request(
             "POST",
             f"/v2/checkout/orders/{order_id}/track",

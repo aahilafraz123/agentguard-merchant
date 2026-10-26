@@ -22,7 +22,8 @@ class Runtime:
 def make_paypal() -> PayPalGateway:
     if settings.paypal_mode == "sandbox":
         return PayPalRestClient(
-            settings.paypal_client_id or "", settings.paypal_client_secret or "",
+            settings.paypal_client_id or "",
+            settings.paypal_client_secret or "",
             settings.paypal_base_url,
         )
     return PayPalSimulator()

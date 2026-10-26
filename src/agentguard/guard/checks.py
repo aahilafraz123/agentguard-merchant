@@ -40,12 +40,18 @@ def order_paid(i: CheckInput) -> CheckResult:
         return _flag("order_paid", title, Outcome.BLOCK, f"PayPal has no order {i.request.order_id}.")
     if i.facts.status != "COMPLETED" or not i.facts.capture_id:
         return _flag(
-            "order_paid", title, Outcome.BLOCK,
+            "order_paid",
+            title,
+            Outcome.BLOCK,
             f"PayPal order status is {i.facts.status}; there is no completed capture to refund.",
             paypal_status=i.facts.status,
         )
-    return _ok("order_paid", title, f"Capture {i.facts.capture_id} is {i.facts.capture_status}.",
-               capture_id=i.facts.capture_id)
+    return _ok(
+        "order_paid",
+        title,
+        f"Capture {i.facts.capture_id} is {i.facts.capture_status}.",
+        capture_id=i.facts.capture_id,
+    )
 
 
 def ownership(i: CheckInput) -> CheckResult:
@@ -54,12 +60,19 @@ def ownership(i: CheckInput) -> CheckResult:
         return _flag("ownership", title, Outcome.BLOCK, "No PayPal order to check ownership against.")
     if i.facts.customer_id != i.context.customer_id:
         return _flag(
-            "ownership", title, Outcome.BLOCK,
+            "ownership",
+            title,
+            Outcome.BLOCK,
             "PayPal records this order under a different customer than the one signed in.",
-            order_customer=i.facts.customer_id, session_customer=i.context.customer_id,
+            order_customer=i.facts.customer_id,
+            session_customer=i.context.customer_id,
         )
-    return _ok("ownership", title, "PayPal custom_id matches the signed-in customer.",
-               customer_id=i.context.customer_id)
+    return _ok(
+        "ownership",
+        title,
+        "PayPal custom_id matches the signed-in customer.",
+        customer_id=i.context.customer_id,
+    )
 
 
 def refundable_amount(i: CheckInput) -> CheckResult:
@@ -77,13 +90,16 @@ def refundable_amount(i: CheckInput) -> CheckResult:
     }
     if amount > i.facts.refundable:
         return _flag(
-            "refundable_amount", title, Outcome.BLOCK,
+            "refundable_amount",
+            title,
+            Outcome.BLOCK,
             f"Requested ${amount:.2f} but only ${i.facts.refundable:.2f} of this payment is "
             "still refundable.",
             **evidence,
         )
-    return _ok("refundable_amount", title,
-               f"${amount:.2f} of ${i.facts.refundable:.2f} refundable.", **evidence)
+    return _ok(
+        "refundable_amount", title, f"${amount:.2f} of ${i.facts.refundable:.2f} refundable.", **evidence
+    )
 
 
 def no_pending_duplicate(i: CheckInput) -> CheckResult:
@@ -93,7 +109,9 @@ def no_pending_duplicate(i: CheckInput) -> CheckResult:
     pending = i.store.pending_for_capture(i.facts.capture_id)
     if pending:
         return _flag(
-            "no_pending_duplicate", title, Outcome.BLOCK,
+            "no_pending_duplicate",
+            title,
+            Outcome.BLOCK,
             f"A refund for this payment is already awaiting review (decision #{pending[0]['id']}).",
             pending_decision=pending[0]["id"],
         )
@@ -107,9 +125,13 @@ def refund_window(i: CheckInput) -> CheckResult:
     age = (utcnow() - i.facts.captured_at).days
     evidence = {"paid_days_ago": age, "window_days": i.policy.refund_window_days}
     if age > i.policy.refund_window_days:
-        return _flag("refund_window", title, i.policy.outside_window,
-                     f"Paid {age} days ago; the window is {i.policy.refund_window_days} days.",
-                     **evidence)
+        return _flag(
+            "refund_window",
+            title,
+            i.policy.outside_window,
+            f"Paid {age} days ago; the window is {i.policy.refund_window_days} days.",
+            **evidence,
+        )
     return _ok("refund_window", title, f"Paid {age} days ago.", **evidence)
 
 
@@ -121,27 +143,44 @@ def shipping_evidence(i: CheckInput) -> CheckResult:
     if i.request.reason == "not_received" and i.facts.shipped:
         t = i.facts.trackers[0]
         return _flag(
-            "shipping_evidence", title, i.policy.shipped_but_not_received,
-            f"Customer says it never arrived, but PayPal shows it shipped "
-            f"({t.carrier} {t.tracking_number}).",
+            "shipping_evidence",
+            title,
+            i.policy.shipped_but_not_received,
+            f"Customer says it never arrived, but PayPal shows it shipped ({t.carrier} {t.tracking_number}).",
             trackers=trackers,
         )
     if i.request.reason == "changed_mind" and i.facts.shipped:
-        return _flag("shipping_evidence", title, i.policy.changed_mind_after_shipping,
-                     "Change-of-mind refund on an order that has already shipped.",
-                     trackers=trackers)
+        return _flag(
+            "shipping_evidence",
+            title,
+            i.policy.changed_mind_after_shipping,
+            "Change-of-mind refund on an order that has already shipped.",
+            trackers=trackers,
+        )
     detail = "Order has not shipped." if not i.facts.shipped else "Reason does not conflict with tracking."
     return _ok("shipping_evidence", title, detail, trackers=trackers)
 
 
 def auto_approve_limit(i: CheckInput) -> CheckResult:
+    """Applies to the running total per payment, so splitting a refund doesn't get around it."""
     title = "Under the auto-approve limit"
     limit = i.policy.auto_approve_limit
-    if i.request.amount > limit:
-        return _flag("auto_approve_limit", title, Outcome.ESCALATE,
-                     f"${i.request.amount:.2f} is above the ${limit:.2f} auto-approve limit.",
-                     limit=f"{limit:.2f}")
-    return _ok("auto_approve_limit", title, f"Under ${limit:.2f}.", limit=f"{limit:.2f}")
+    already = i.facts.refunded if i.facts else 0
+    cumulative = already + i.request.amount
+    evidence = {
+        "limit": f"{limit:.2f}",
+        "refunded_on_order": f"{already:.2f}",
+        "total_after": f"{cumulative:.2f}",
+    }
+    if cumulative > limit:
+        detail = f"${i.request.amount:.2f} is above the ${limit:.2f} auto-approve limit."
+        if already:
+            detail = (
+                f"With ${already:.2f} already refunded on this order, the total would be "
+                f"${cumulative:.2f}, above the ${limit:.2f} auto-approve limit."
+            )
+        return _flag("auto_approve_limit", title, Outcome.ESCALATE, detail, **evidence)
+    return _ok("auto_approve_limit", title, f"${cumulative:.2f} total, under ${limit:.2f}.", **evidence)
 
 
 def velocity(i: CheckInput) -> CheckResult:
@@ -150,13 +189,23 @@ def velocity(i: CheckInput) -> CheckResult:
     new_count, new_total = count + 1, total + i.request.amount
     evidence = {"refunds_30d": count, "refunded_30d": f"{total:.2f}"}
     if new_count > i.policy.max_refunds_per_customer_30d:
-        return _flag("velocity", title, Outcome.ESCALATE,
-                     f"This would be refund #{new_count} for this customer in 30 days "
-                     f"(limit {i.policy.max_refunds_per_customer_30d}).", **evidence)
+        return _flag(
+            "velocity",
+            title,
+            Outcome.ESCALATE,
+            f"This would be refund #{new_count} for this customer in 30 days "
+            f"(limit {i.policy.max_refunds_per_customer_30d}).",
+            **evidence,
+        )
     if new_total > i.policy.max_refund_total_per_customer_30d:
-        return _flag("velocity", title, Outcome.ESCALATE,
-                     f"This would bring the customer to ${new_total:.2f} refunded in 30 days "
-                     f"(limit ${i.policy.max_refund_total_per_customer_30d:.2f}).", **evidence)
+        return _flag(
+            "velocity",
+            title,
+            Outcome.ESCALATE,
+            f"This would bring the customer to ${new_total:.2f} refunded in 30 days "
+            f"(limit ${i.policy.max_refund_total_per_customer_30d:.2f}).",
+            **evidence,
+        )
     return _ok("velocity", title, f"{count} refund(s), ${total:.2f} in the last 30 days.", **evidence)
 
 
@@ -166,8 +215,13 @@ def manipulation(i: CheckInput) -> CheckResult:
     evidence = {"score": round(risk.score, 2), "tactics": risk.tactics, "source": risk.source}
     if risk.score >= i.policy.manipulation_threshold:
         tactics = ", ".join(risk.tactics) or "unspecified"
-        return _flag("manipulation", title, Outcome.ESCALATE,
-                     f"Risk {risk.score:.2f} ({tactics}). {risk.rationale}".strip(), **evidence)
+        return _flag(
+            "manipulation",
+            title,
+            Outcome.ESCALATE,
+            f"Risk {risk.score:.2f} ({tactics}). {risk.rationale}".strip(),
+            **evidence,
+        )
     return _ok("manipulation", title, f"Risk {risk.score:.2f}.", **evidence)
 
 

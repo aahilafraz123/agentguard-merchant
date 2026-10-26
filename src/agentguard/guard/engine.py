@@ -54,9 +54,7 @@ class AgentGuard:
         """Pure decision: reads PayPal and history, moves no money, writes nothing."""
         facts = self._facts(request.order_id)
         risk = self.detector.assess(context.customer_messages)
-        checks = run_checks(
-            CheckInput(request, context, facts, self.policy, risk, self.store)
-        )
+        checks = run_checks(CheckInput(request, context, facts, self.policy, risk, self.store))
         outcome = worst(checks)
         status = {Outcome.ALLOW: "executed", Outcome.ESCALATE: "pending", Outcome.BLOCK: "blocked"}
         return Decision(
@@ -120,7 +118,9 @@ class AgentGuard:
     def approve(self, decision_id: int, reviewer: str = "merchant", note: str = "") -> dict:
         row = self._pending(decision_id)
         request = RefundRequest(
-            order_id=row["order_id"], amount=row["amount"], reason=row["reason"],
+            order_id=row["order_id"],
+            amount=row["amount"],
+            reason=row["reason"],
             customer_claim=row["claim"],
         )
         context = SessionContext(session_id=row["session_id"], customer_id=row["customer_id"])
@@ -133,13 +133,22 @@ class AgentGuard:
         resolved = {"resolved_by": reviewer, "resolved_note": note, "resolved_at": utcnow().isoformat()}
         if worst(recheck) == Outcome.BLOCK:
             reason = "; ".join(c.detail for c in recheck if c.outcome == Outcome.BLOCK)
-            self.store.update_decision(decision_id, status="denied", error=f"Re-check failed: {reason}", **resolved)
+            self.store.update_decision(
+                decision_id, status="denied", error=f"Re-check failed: {reason}", **resolved
+            )
             return self.store.get_decision(decision_id)
         self.store.update_decision(decision_id, **resolved)
         decision = Decision(
-            id=decision_id, outcome=Outcome.ESCALATE, status="pending", request=request,
-            context=context, checks=recheck, risk=RiskAssessment(score=0), summary=row["summary"],
-            customer_message="", capture_id=facts.capture_id if facts else None,
+            id=decision_id,
+            outcome=Outcome.ESCALATE,
+            status="pending",
+            request=request,
+            context=context,
+            checks=recheck,
+            risk=RiskAssessment(score=0),
+            summary=row["summary"],
+            customer_message="",
+            capture_id=facts.capture_id if facts else None,
         )
         self._execute(decision_id, decision, final_status="approved")
         return self.store.get_decision(decision_id)
@@ -147,7 +156,10 @@ class AgentGuard:
     def deny(self, decision_id: int, reviewer: str = "merchant", note: str = "") -> dict:
         self._pending(decision_id)
         self.store.update_decision(
-            decision_id, status="denied", resolved_by=reviewer, resolved_note=note,
+            decision_id,
+            status="denied",
+            resolved_by=reviewer,
+            resolved_note=note,
             resolved_at=utcnow().isoformat(),
         )
         return self.store.get_decision(decision_id)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -65,7 +65,7 @@ ACTIVE_STATUSES = ("executed", "approved", "pending")
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Store:
@@ -159,8 +159,7 @@ class Store:
         since = (utcnow() - timedelta(days=days)).isoformat()
         marks = ", ".join("?" for _ in ACTIVE_STATUSES)
         rows = self._all(
-            f"SELECT amount FROM decisions WHERE customer_id = ? AND created_at >= ? "
-            f"AND status IN ({marks})",
+            f"SELECT amount FROM decisions WHERE customer_id = ? AND created_at >= ? AND status IN ({marks})",
             (customer_id, since, *ACTIVE_STATUSES),
         )
         return len(rows), sum((Decimal(r["amount"]) for r in rows), Decimal("0"))
@@ -188,9 +187,7 @@ class Store:
         return json.loads(rows[0]["value"]) if rows else None
 
     def set_setting(self, key: str, value: Any) -> None:
-        self._exec(
-            "INSERT OR REPLACE INTO settings VALUES (?, ?)", (key, json.dumps(value, default=str))
-        )
+        self._exec("INSERT OR REPLACE INTO settings VALUES (?, ?)", (key, json.dumps(value, default=str)))
 
 
 def _decode(row: dict[str, Any]) -> dict[str, Any]:

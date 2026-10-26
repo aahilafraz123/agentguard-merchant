@@ -74,8 +74,12 @@ def compile_policy(text: str, current: Policy) -> tuple[Policy, CompiledPolicy]:
 def diff(old: Policy, new: Policy) -> list[dict[str, str]]:
     before, after = old.model_dump(mode="json"), new.model_dump(mode="json")
     return [
-        {"field": key, "before": str(before[key]), "after": str(after[key]),
-         "description": Policy.model_fields[key].description or key}
+        {
+            "field": key,
+            "before": str(before[key]),
+            "after": str(after[key]),
+            "description": Policy.model_fields[key].description or key,
+        }
         for key in before
         if before[key] != after[key]
     ]

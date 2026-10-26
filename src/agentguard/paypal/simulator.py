@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import itertools
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from .models import LineItem, OrderFacts, PayPalError, RefundRecord, Tracker
@@ -52,9 +52,7 @@ class PayPalSimulator:
                 )
             refund = RefundRecord(refund_id=self._id("RF"), amount=amount, status="COMPLETED")
             order.refunds.append(refund)
-            order.capture_status = (
-                "REFUNDED" if order.refundable == 0 else "PARTIALLY_REFUNDED"
-            )
+            order.capture_status = "REFUNDED" if order.refundable == 0 else "PARTIALLY_REFUNDED"
             self._request_ids[request_id] = refund
             return refund
 
@@ -75,7 +73,7 @@ class PayPalSimulator:
             capture_status="COMPLETED",
             currency=currency,
             captured=total,
-            captured_at=datetime.now(timezone.utc) - timedelta(days=placed_days_ago),
+            captured_at=datetime.now(UTC) - timedelta(days=placed_days_ago),
             items=items,
         )
         with self._lock:
@@ -83,9 +81,7 @@ class PayPalSimulator:
             self._by_capture[order.capture_id] = order.order_id
         return order.model_copy(deep=True)
 
-    def add_tracking(
-        self, order_id: str, capture_id: str, tracking_number: str, carrier: str
-    ) -> None:
+    def add_tracking(self, order_id: str, capture_id: str, tracking_number: str, carrier: str) -> None:
         self._orders[order_id].trackers.append(
             Tracker(tracking_number=tracking_number, carrier=carrier, status="SHIPPED")
         )

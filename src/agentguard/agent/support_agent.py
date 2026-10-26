@@ -14,7 +14,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from .. import llm
@@ -29,14 +29,21 @@ log = logging.getLogger(__name__)
 MAX_STEPS = 8
 
 
-class GuardMode(str, Enum):
+class GuardMode(StrEnum):
     UNGUARDED = "unguarded"
     PROMPT_ONLY = "prompt_only"
     AGENTGUARD = "agentguard"
 
 
-REASONS = ["not_received", "damaged", "wrong_item", "not_as_described", "changed_mind",
-           "duplicate_charge", "other"]
+REASONS = [
+    "not_received",
+    "damaged",
+    "wrong_item",
+    "not_as_described",
+    "changed_mind",
+    "duplicate_charge",
+    "other",
+]
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -199,14 +206,17 @@ class SupportAgent:
             for block in tool_uses:
                 events.append({"type": "tool_call", "name": block.name, "input": block.input})
                 output, is_error = self._run_tool(session, block.name, block.input, events)
-                events.append({"type": "tool_result", "name": block.name, "output": output,
-                               "is_error": is_error})
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": json.dumps(output, default=str),
-                    "is_error": is_error,
-                })
+                events.append(
+                    {"type": "tool_result", "name": block.name, "output": output, "is_error": is_error}
+                )
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(output, default=str),
+                        "is_error": is_error,
+                    }
+                )
             session.messages.append({"role": "user", "content": results})
         else:
             reply = reply or "Let me get a team member to look at this for you."
@@ -220,8 +230,9 @@ class SupportAgent:
     ) -> tuple[Any, bool]:
         try:
             if name == "list_my_orders":
-                return [self.paypal.get_order(oid).summary()
-                        for oid in self.store.orders_for(session.customer_id)], False
+                return [
+                    self.paypal.get_order(oid).summary() for oid in self.store.orders_for(session.customer_id)
+                ], False
             if name == "get_order":
                 return self.paypal.get_order(args["order_id"]).summary(), False
             if name == "issue_refund":
@@ -262,20 +273,26 @@ class SupportAgent:
         )
         decision = self.guard.submit(request, context, transcript=list(session.transcript))
         session.decisions.append(decision.id)
-        events.append({
-            "type": "guard_decision",
-            "decision_id": decision.id,
-            "outcome": decision.outcome.value,
-            "status": decision.status,
-            "summary": decision.summary,
-            "checks": [c.model_dump(mode="json") for c in decision.checks],
-            "risk": decision.risk.model_dump(mode="json"),
-        })
+        events.append(
+            {
+                "type": "guard_decision",
+                "decision_id": decision.id,
+                "outcome": decision.outcome.value,
+                "status": decision.status,
+                "summary": decision.summary,
+                "checks": [c.model_dump(mode="json") for c in decision.checks],
+                "risk": decision.risk.model_dump(mode="json"),
+            }
+        )
         if decision.status == "executed":
-            session.refunds.append({"order_id": request.order_id, "amount": request.amount,
-                                    "refund_id": decision.refund_id})
-            return {"status": "COMPLETED", "refund_id": decision.refund_id,
-                    "amount": f"{request.amount:.2f}"}, False
+            session.refunds.append(
+                {"order_id": request.order_id, "amount": request.amount, "refund_id": decision.refund_id}
+            )
+            return {
+                "status": "COMPLETED",
+                "refund_id": decision.refund_id,
+                "amount": f"{request.amount:.2f}",
+            }, False
         if decision.outcome == Outcome.ESCALATE:
             return {"status": "PENDING_REVIEW", "message": decision.customer_message}, False
         return {"status": "DECLINED", "message": decision.customer_message}, True
@@ -289,26 +306,38 @@ class SupportAgent:
             note=f"Refund for order {request.order_id}",
             request_id=f"direct-{session.session_id}-{len(session.refunds)}-{uuid.uuid4().hex[:6]}",
         )
-        session.refunds.append({"order_id": request.order_id, "amount": request.amount,
-                                "refund_id": refund.refund_id})
-        decision_id = self.store.insert_decision({
-            "session_id": session.session_id,
-            "customer_id": session.customer_id,
-            "order_id": request.order_id,
-            "capture_id": facts.capture_id,
-            "amount": f"{request.amount:.2f}",
-            "reason": request.reason,
-            "claim": request.customer_claim,
-            "outcome": "allow",
-            "status": "executed",
-            "checks": [],
-            "risk": {},
-            "summary": f"Unguarded ({session.mode.value}): refund issued without checks.",
-            "transcript": list(session.transcript),
-            "refund_id": refund.refund_id,
-        })
+        session.refunds.append(
+            {"order_id": request.order_id, "amount": request.amount, "refund_id": refund.refund_id}
+        )
+        decision_id = self.store.insert_decision(
+            {
+                "session_id": session.session_id,
+                "customer_id": session.customer_id,
+                "order_id": request.order_id,
+                "capture_id": facts.capture_id,
+                "amount": f"{request.amount:.2f}",
+                "reason": request.reason,
+                "claim": request.customer_claim,
+                "outcome": "allow",
+                "status": "executed",
+                "checks": [],
+                "risk": {},
+                "summary": f"Unguarded ({session.mode.value}): refund issued without checks.",
+                "transcript": list(session.transcript),
+                "refund_id": refund.refund_id,
+            }
+        )
         session.decisions.append(decision_id)
-        events.append({"type": "direct_refund", "decision_id": decision_id,
-                       "refund_id": refund.refund_id, "amount": f"{request.amount:.2f}"})
-        return {"status": "COMPLETED", "refund_id": refund.refund_id,
-                "amount": f"{request.amount:.2f}"}, False
+        events.append(
+            {
+                "type": "direct_refund",
+                "decision_id": decision_id,
+                "refund_id": refund.refund_id,
+                "amount": f"{request.amount:.2f}",
+            }
+        )
+        return {
+            "status": "COMPLETED",
+            "refund_id": refund.refund_id,
+            "amount": f"{request.amount:.2f}",
+        }, False

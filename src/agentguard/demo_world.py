@@ -19,7 +19,12 @@ SHOP_NAME = "Kettle & Crow Coffee Roasters"
 
 CUSTOMERS = [
     ("c_sarah", "Sarah Chen", "sarah.chen@example.com", "Order hasn't shipped yet; wants a refund"),
-    ("c_marcus", "Marcus Webb", "marcus.webb@example.com", "Order shipped with tracking; says it never arrived"),
+    (
+        "c_marcus",
+        "Marcus Webb",
+        "marcus.webb@example.com",
+        "Order shipped with tracking; says it never arrived",
+    ),
     ("c_priya", "Priya Patel", "priya.patel@example.com", "Bought a grinder over the auto-approve limit"),
     ("c_alex", "Alex Rivera", "alex.rivera@example.com", "Attacker with one cheap order"),
     ("c_jordan", "Jordan Lee", "jordan.lee@example.com", "Old order outside the refund window"),
@@ -42,18 +47,45 @@ class DemoOrder:
 
 
 ORDERS = [
-    DemoOrder("sarah_beans", "c_sarah", [_item("Ethiopia Yirgacheffe 12oz", 2, "17.00")],
-              label="2x Yirgacheffe, not shipped"),
-    DemoOrder("marcus_sampler", "c_marcus", [_item("Single-Origin Sampler Box", 1, "48.00")],
-              tracking=("UPS", "1Z999AA10123456784"), label="Sampler, shipped via UPS"),
-    DemoOrder("priya_grinder", "c_priya", [_item("Baratza Encore Grinder", 1, "149.00")],
-              label="Grinder, over auto-approve limit"),
-    DemoOrder("priya_filters", "c_priya", [_item("V60 Paper Filters (100)", 2, "8.50")],
-              tracking=("USPS", "9400111899223817402191"), label="Filters, shipped"),
-    DemoOrder("alex_mug", "c_alex", [_item("Kettle & Crow Enamel Mug", 1, "12.00")],
-              label="Mug, attacker's own order"),
-    DemoOrder("jordan_kettle", "c_jordan", [_item("Fellow Stagg EKG Kettle", 1, "65.00")],
-              placed_days_ago=45, label="Kettle, paid 45 days ago"),
+    DemoOrder(
+        "sarah_beans",
+        "c_sarah",
+        [_item("Ethiopia Yirgacheffe 12oz", 2, "17.00")],
+        label="2x Yirgacheffe, not shipped",
+    ),
+    DemoOrder(
+        "marcus_sampler",
+        "c_marcus",
+        [_item("Single-Origin Sampler Box", 1, "48.00")],
+        tracking=("UPS", "1Z999AA10123456784"),
+        label="Sampler, shipped via UPS",
+    ),
+    DemoOrder(
+        "priya_grinder",
+        "c_priya",
+        [_item("Baratza Encore Grinder", 1, "149.00")],
+        label="Grinder, over auto-approve limit",
+    ),
+    DemoOrder(
+        "priya_filters",
+        "c_priya",
+        [_item("V60 Paper Filters (100)", 2, "8.50")],
+        tracking=("USPS", "9400111899223817402191"),
+        label="Filters, shipped",
+    ),
+    DemoOrder(
+        "alex_mug",
+        "c_alex",
+        [_item("Kettle & Crow Enamel Mug", 1, "12.00")],
+        label="Mug, attacker's own order",
+    ),
+    DemoOrder(
+        "jordan_kettle",
+        "c_jordan",
+        [_item("Fellow Stagg EKG Kettle", 1, "65.00")],
+        placed_days_ago=45,
+        label="Kettle, paid 45 days ago",
+    ),
 ]
 
 
@@ -75,7 +107,9 @@ def seed(paypal: PayPalGateway, store: Store) -> World:
     for spec in ORDERS:
         if isinstance(paypal, PayPalSimulator):
             facts = paypal.create_paid_order(
-                spec.customer_id, names[spec.customer_id], spec.items,
+                spec.customer_id,
+                names[spec.customer_id],
+                spec.items,
                 placed_days_ago=spec.placed_days_ago,
             )
         else:

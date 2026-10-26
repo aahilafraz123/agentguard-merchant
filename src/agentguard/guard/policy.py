@@ -40,8 +40,8 @@ class Policy(BaseModel):
         return [
             f"Refunds are available within {self.refund_window_days} days of payment; "
             f"later requests are {verb[self.outside_window]}.",
-            f"Refunds up to ${self.auto_approve_limit:.2f} can be issued automatically; "
-            "larger ones need the owner's approval.",
+            f"Refunds up to ${self.auto_approve_limit:.2f} per order (in total, across all "
+            "refunds on that order) can be issued automatically; more needs the owner's approval.",
             f"A customer may receive at most {self.max_refunds_per_customer_30d} refunds and "
             f"${self.max_refund_total_per_customer_30d:.2f} in total per 30 days without review.",
             "If a customer says an order never arrived but it has shipped with tracking, the "

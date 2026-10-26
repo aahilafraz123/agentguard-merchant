@@ -64,8 +64,9 @@ def test_second_refund_on_same_capture_cannot_exceed_total(env):
 
 def test_shipped_but_claimed_not_received_escalates(env):
     _, _, world, guard = env
-    d = guard.submit(req(world.order_id("marcus_sampler"), 48, "not_received"),
-                     ctx("c_marcus", "it never came"))
+    d = guard.submit(
+        req(world.order_id("marcus_sampler"), 48, "not_received"), ctx("c_marcus", "it never came")
+    )
     assert d.outcome == Outcome.ESCALATE and "shipping_evidence" in failed(d)
     assert d.status == "pending"
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+from collections import Counter
 from functools import lru_cache
 from typing import Any
 
@@ -15,6 +17,25 @@ log = logging.getLogger(__name__)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 _fallbacks_ok = settings.use_fallbacks
+
+# Running token totals per model, so eval runs can report what they cost.
+usage: Counter = Counter()
+_usage_lock = threading.Lock()
+
+
+def _record_usage(response: Any) -> None:
+    u = getattr(response, "usage", None)
+    if u is None:
+        return
+    model = getattr(response, "model", "unknown")
+    with _usage_lock:
+        usage[(model, "input")] += (
+            (u.input_tokens or 0)
+            + (getattr(u, "cache_read_input_tokens", 0) or 0)
+            + (getattr(u, "cache_creation_input_tokens", 0) or 0)
+        )
+        usage[(model, "output")] += u.output_tokens or 0
+        usage[(model, "calls")] += 1
 
 
 @lru_cache(maxsize=1)
@@ -34,13 +55,16 @@ def _call(method, kwargs: dict[str, Any]):
     """Run a beta messages call, with server-side refusal fallbacks when the API accepts them."""
     global _fallbacks_ok
     try:
-        return method(**_with_fallbacks(kwargs))
+        response = method(**_with_fallbacks(kwargs))
     except anthropic.BadRequestError as exc:
         if _fallbacks_ok and "fallback" in str(exc).lower():
             log.warning("Refusal fallbacks rejected by the API; continuing without them.")
             _fallbacks_ok = False
-            return method(**kwargs)
-        raise
+            response = method(**kwargs)
+        else:
+            raise
+    _record_usage(response)
+    return response
 
 
 def create(**kwargs: Any):

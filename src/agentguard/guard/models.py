@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -19,7 +19,7 @@ RefundReason = Literal[
 ]
 
 
-class Outcome(str, Enum):
+class Outcome(StrEnum):
     ALLOW = "allow"
     ESCALATE = "escalate"
     BLOCK = "block"

@@ -20,14 +20,14 @@ from .models import RiskAssessment
 log = logging.getLogger(__name__)
 
 TACTICS = [
-    "impersonation",          # claims to be the owner, staff, PayPal, a developer
+    "impersonation",  # claims to be the owner, staff, PayPal, a developer
     "instruction_injection",  # tries to give the assistant new rules or a new role
-    "policy_misquote",        # asserts a refund policy or promise that does not exist
-    "false_authorization",    # "your manager already approved this"
-    "urgency_or_threats",     # chargebacks, lawyers, reviews, deadlines used as pressure
-    "third_party_order",      # asks about or for refunds on someone else's order
-    "amount_inflation",       # asks for more than was paid, or extra compensation
-    "split_requests",         # breaks one refund into several to stay under limits
+    "policy_misquote",  # asserts a refund policy or promise that does not exist
+    "false_authorization",  # "your manager already approved this"
+    "urgency_or_threats",  # chargebacks, lawyers, reviews, deadlines used as pressure
+    "third_party_order",  # asks about or for refunds on someone else's order
+    "amount_inflation",  # asks for more than was paid, or extra compensation
+    "split_requests",  # breaks one refund into several to stay under limits
 ]
 
 
@@ -36,21 +36,32 @@ class Detector(Protocol):
 
 
 _PATTERNS: list[tuple[str, str, float]] = [
-    (r"\b(i am|i'm|this is|as)\s+(the\s+|an?\s+)?(\w+\s+)?"
-     r"(owner|admin|manager|developer|staff|ceo|support lead)\b",
-     "impersonation", 0.55),
+    (
+        r"\b(i am|i'm|this is|as)\s+(the\s+|an?\s+)?(\w+\s+)?"
+        r"(owner|admin|manager|developer|staff|ceo|support lead)\b",
+        "impersonation",
+        0.55,
+    ),
     (r"\b(paypal|stripe)\s+(support|security|team|agent)\b", "impersonation", 0.45),
-    (r"\b(ignore|disregard|forget)\b.{0,40}\b(instructions|rules|policy|previous|above)\b",
-     "instruction_injection", 0.7),
-    (r"\b(system prompt|new instructions|developer mode|you are now|act as)\b",
-     "instruction_injection", 0.6),
-    (r"\b(override|bypass|skip)\b.{0,30}\b(limit|check|policy|verification|review)\b",
-     "instruction_injection", 0.6),
+    (
+        r"\b(ignore|disregard|forget)\b.{0,40}\b(instructions|rules|policy|previous|above)\b",
+        "instruction_injection",
+        0.7,
+    ),
+    (r"\b(system prompt|new instructions|developer mode|you are now|act as)\b", "instruction_injection", 0.6),
+    (
+        r"\b(override|bypass|skip)\b.{0,30}\b(limit|check|policy|verification|review)\b",
+        "instruction_injection",
+        0.6,
+    ),
     (r"\b(already|pre-?)\s*(approved|authorized|cleared)\b", "false_authorization", 0.45),
     (r"\b(policy|website|terms)\s+(says|states|promises|guarantees)\b", "policy_misquote", 0.3),
     (r"\b(chargeback|lawyer|sue|attorney|bbb|1[- ]star|report you)\b", "urgency_or_threats", 0.25),
-    (r"\b(my (friend|wife|husband|brother|sister|roommate|mom|dad)'?s?|someone else'?s?) order\b",
-     "third_party_order", 0.4),
+    (
+        r"\b(my (friend|wife|husband|brother|sister|roommate|mom|dad)'?s?|someone else'?s?) order\b",
+        "third_party_order",
+        0.4,
+    ),
     (r"\b(extra|compensation|double|plus interest|for the trouble)\b", "amount_inflation", 0.3),
     (r"\b(split|separate|two|multiple)\s+(refunds|payments|transactions)\b", "split_requests", 0.4),
 ]
