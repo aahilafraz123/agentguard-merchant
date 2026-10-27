@@ -360,7 +360,7 @@ Every push runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
    (`ghcr.io/aahilafraz123/agentguard-merchant`).
 4. On `main`, a Render deploy hook ships the new image, but only if every earlier job passed.
 
-The 35 tests run offline in about 2 seconds. Line coverage is **93% on the guard package**
+The 35 tests run offline in under 10 seconds. Line coverage is **93% on the guard package**
 (`guard/`: the pipeline, checks, detector and policy) and 68% overall; the FastAPI routes and the
 live PayPal REST client are exercised by the evals and the sandbox demo rather than unit tests.
 
