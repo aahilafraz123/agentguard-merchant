@@ -187,6 +187,24 @@ The deterministic guard eval (30 labeled refund requests sent straight to the gu
 agent were fully jailbroken) gets **30/30** with zero attacks moving money. It runs in CI on
 every push.
 
+### Latency
+
+Time the guard adds before a refund can go to PayPal, measured with
+[`scripts/bench_latency.py`](scripts/bench_latency.py) on 20 decisions against the PayPal sandbox
+with Haiku as the risk agent:
+
+| Step | p50 | p95 |
+|---|---|---|
+| PayPal order read (order, captures, refunds, tracking) | 844 ms | 1474 ms |
+| Claude Haiku risk assessment | 1578 ms | 1717 ms |
+| **Full guard decision** (evidence, risk, nine checks, audit record) | **2446 ms** | **2654 ms** |
+
+Nearly all of it is the two network calls. The LangGraph pipeline itself, timed on the simulator
+with the keyword detector, adds **1.07 ms p50 / 1.43 ms p95** per decision (CI re-measures this on
+every push). The PayPal read and the risk call run one after the other today; running them in
+parallel would bring a decision close to the slower of the two (about 1.6 s). Results:
+[`evals/results/latency_sandbox.md`](evals/results/latency_sandbox.md).
+
 ## Run it
 
 ```bash
@@ -272,13 +290,16 @@ uv run python evals/run_guard_eval.py               # 30 labeled requests, no AP
 uv run python evals/run_detector_eval.py            # 60 labeled chats, precision/recall (~1 cent)
 uv run python evals/run_agent_eval.py --dry-run     # plan for the end-to-end red-team eval
 uv run python evals/run_agent_eval.py               # 24 conversations x 3 configs (Claude API cost)
+uv run python scripts/bench_latency.py offline      # pipeline overhead per decision, no network
+uv run python scripts/bench_latency.py sandbox      # PayPal sandbox + Haiku latency (~2 cents)
+uv run pytest --cov=agentguard                      # 35 tests with coverage
 ```
 
 - **Guard eval** ([`evals/guard_cases.yaml`](evals/guard_cases.yaml)): refund requests fed straight to
   the guard, each labeled allow / escalate / block. It's a regression suite for the rules: CI fails
   if any attack moves money.
 - **Red-team eval** ([`evals/conversations.yaml`](evals/conversations.yaml)): scripted customers play
-  multi-turn conversations against the *same* Claude support agent in three configurations:
+  conversations of one to three turns (9 of the 24 are multi-turn) against the *same* Claude support agent in three configurations:
   - **unguarded**: refunds go straight to PayPal.
   - **prompt-only**: the policy and security rules are in the system prompt.
   - **AgentGuard**.
@@ -302,7 +323,7 @@ src/agentguard/
   demo_world.py   the demo shop, customers and orders
 web/              React + TypeScript + AG Grid merchant console and storefront chat
 evals/            guard eval, detector eval, red-team conversations, results
-scripts/          mcp_demo.py (drives the MCP proxy against the sandbox)
+scripts/          mcp_demo.py (drives the MCP proxy against the sandbox) · bench_latency.py
 tests/            guard, LangGraph pipeline, MCP proxy and agent tests (no network)
 ```
 
@@ -331,12 +352,17 @@ tests/            guard, LangGraph pipeline, MCP proxy and agent tests (no netwo
 
 Every push runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
-1. Lint, unit tests, the guard eval and the keyword detector eval. All of these run with no API
-   calls.
+1. Lint, unit tests with coverage, the guard latency benchmark (simulator), the guard eval and
+   the keyword detector eval. All of these run with no API calls. Coverage and latency go to the
+   run's summary page.
 2. The web build.
 3. The Docker image is built and pushed to GitHub Container Registry
    (`ghcr.io/aahilafraz123/agentguard-merchant`).
 4. On `main`, a Render deploy hook ships the new image, but only if every earlier job passed.
+
+The 35 tests run offline in about 2 seconds. Line coverage is **93% on the guard package**
+(`guard/`: the pipeline, checks, detector and policy) and 68% overall; the FastAPI routes and the
+live PayPal REST client are exercised by the evals and the sandbox demo rather than unit tests.
 
 ## Limitations
 

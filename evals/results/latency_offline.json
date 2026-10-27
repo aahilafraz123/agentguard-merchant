@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-10-27T00:52:09+00:00",
+  "mode": "offline",
+  "detector": "keyword",
+  "paypal": "simulator",
+  "paypal_order_read": {
+    "n": 300,
+    "p50_ms": 0.01,
+    "p95_ms": 0.02,
+    "mean_ms": 0.02
+  },
+  "risk_assessment": {
+    "n": 300,
+    "p50_ms": 0.01,
+    "p95_ms": 0.01,
+    "mean_ms": 0.01
+  },
+  "guard_decision": {
+    "n": 300,
+    "p50_ms": 1.07,
+    "p95_ms": 1.43,
+    "mean_ms": 1.16
+  },
+  "decisions_per_second_one_worker": 863.2
+}
